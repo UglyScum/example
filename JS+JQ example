@@ -1,0 +1,673 @@
+<script type="text/javascript">
+                                                                                                               
+function removeByID(id) {
+  var vis_number = $('#vis_counter').val() * 1;
+
+  $("#order_" + id).remove();
+  $("#res_order_"+id).empty();
+  $("#bDel_order_"+id).remove();
+  $('#vis_counter').val(vis_number-1);
+  updateCounters();
+}
+                                                                                                                
+function showByID(id) {
+  $("#bDel_order_"+id).prop("hidden", false);
+}
+                                                                                                                
+function hideByID(id) {
+  $("#bDel_order_"+id).prop("hidden", true);
+}
+                                                                                                                
+function updateCounters() {
+  var selected = $("#department option:selected").val();
+  var user_selected_filter = $("#user_filter option:selected").val();
+  $('#vis_counter_n').val($('#fields').find(user_selected_filter).size());
+  $('#vis_counter_s').val($('#fields .eject').size() + $('#fields .eject_hot_line').size());
+}
+                                                                                                                
+function createField() {
+    var number = $('#counter').val() * 1;
+    var vis_number = $('#vis_counter').val() * 1;
+    var fid = 'order_' + number;
+
+    $('#fields').append(''
+      + '<div style="clear:both;"><input class="order" type="text" name="orders[]" id="' + fid + '" size="10" value="" />'
+      + '<div style="position:relative">'
+      + '<div style="width:200pt; float: left; font-size2: 30pt;" id="res_' + fid + '" >отсканируйте заказ </div>'
+      + '<div clas2s="del_but" style2="float: left;" id="del_' + fid + '">'
+      +   '<input class="del_but" id="bDel_'+ fid +'" type="button" name="bDel_'+ fid +'" value="&#215;"hidden onClick="removeByID('+ number +')">'
+      + '</div></div></div>'
+    );
+
+    var field = $( "#" + fid );
+    field.change(function() {
+        createField();
+        getStatus(fid, $(this).val());
+        lockField(fid);
+    });
+    field.keypress(function(e) {
+        if ((e.keyCode == 13) && ($(this).val() == '')) {
+            nextFocus();
+
+        }
+    });
+    field.click(function(e) {
+      if ($(this).val() != '') {
+        if ($("#bDel_order_"+number).prop("hidden") == true){
+          showByID(number);
+        } else {
+          hideByID(number);
+        }
+      }
+    });
+
+    field.focus();
+    $('#counter').val(number + 1);
+    $('#vis_counter').val(vis_number + 1);
+}
+                                                                                                                
+function getStatus(fid, order) {
+  var selected = $("#department option:selected").val();
+
+  if (findOrder(order) == false) {
+    $("#res_" + fid).load('/ges/getStatusOrder.php?NeedUpdate=yes&ViewType=PC&department='+ selected +'&order=' + order.replace(/[^0-9]*/g, ''),function() {
+      updateCounters();
+    });
+  } else {
+    $("#res_" + fid).html('<input class="duble answer" type="text" value="Дубль!" readonly)>');
+    $("#" + fid).prop("class","duble");
+  }
+  
+}
+                                                                                                                
+function lockField(id) {
+  $("#" + id).prop("readonly", true);
+}
+                                                                                                                
+function resetOrderList() {
+  $('#fields').empty();
+  updateCounters();
+  $('#vis_counter').val(-1);
+  createField();
+}
+                                                                                                                
+function resetOrderListWithFilter(filter) {
+  var vis_number = $('#vis_counter').val() * 1;
+
+  if (group == 'QC') {
+    $("#sts_id").val('');
+  }
+  if (group == 'assembly') {
+    $("#mgr_id").val('');
+  }
+
+  orders = $('#fields').find(filter);
+  count = orders.size();
+  orders.each(function(){
+    $('#vis_counter').val( vis_number - count);
+    $(this).parent().parent().parent().remove();
+  });
+  updateCounters();
+}
+                                                                                                                
+function resetLog() {
+  $('#log').empty();
+  $('#result').empty();
+}
+                                                                                                                
+function checkAllow(to_find, str, lookup_type) {
+  var find_flag = -1.
+  var i = 0.
+  array_to_find = to_find.split (',');
+  array_str = str.split (',');
+
+  if ((str != '')&&(to_find != '')) {
+    for(var i = 0; i < array_to_find.length; i++) {
+      find_result = '-1';
+      for (j = 0; j < array_str.length; j++) {
+        if (array_str[j] == array_to_find[i]) {
+          find_result = '0';
+        }
+      }
+      if (find_result != '-1') {
+        find_flag = 0;
+      } else {
+        if (lookup_type == 'ALL') {
+          find_flag = array_to_find[i];
+          i = array_to_find.length;
+        }
+      }
+    }
+  } else {
+    if (str == '') {
+      find_flag = 0.
+    } else {
+      find_flag = -1.
+    }
+  }
+  return find_flag;
+}
+                                                                                                                
+function sendStatuses(orders, mgr_id, sts_id) {
+  var selected = $("#department option:selected").val();
+
+  $("#result").load('/ges/setStatusOrderForPC.php?NeedUpdate=yes' 
+    + '&mgr_id=' + mgr_id + '&sts_id=' + sts_id + '&orders=' + orders + '&department=' + selected);
+  $("#log").prepend("mgr=" + mgr_id + ' sts_id=' + sts_id + ' orders=' + orders + ' department=' + selected + "<br />");
+}
+                                                                                                                
+function setStatuses(filter, action = 'set') {
+  var number = $('#counter').val() * 1 - 1;
+  var fid = 'order_' + number;
+  var mgr_id = $("#mgr_id_s").val() * 1;
+  var mgr_eject_id = $("#mgr_id_e").val() * 1;
+  var mgr_eject_id_hot_line = $("#mgr_id_e_h_l").val() * 1;
+  var sts_id = $("#sts_id_s").val();
+  var eject_id = $("#eject_id").val() * 1;
+  var eject_id_hot_line = $("#eject_id_hot_line").val() * 1;
+  var selected = $('#department').find(":selected");
+  var all_orders = findOrders('.answer');
+  var allowed_statuses = $('#allowed_statuses').val();
+  var checkSts = /\d+/;
+
+  if(((mgr_id > 0) && (sts_id.match(checkSts) != null)) || (mgr_eject_id > 0) || (mgr_eject_id_hot_line > 0)){
+    if(selected.val() == "disabled"){
+      alert("Выберите отдел!");
+    } else {
+      allowance = checkAllow(sts_id,allowed_statuses,'ALL');
+      if (allowance == '0') {
+        if(selected.val() == "manufacture"){
+          var orders = findOrders(filter);
+          if (action == 'eject'){
+            sendStatuses(orders, mgr_eject_id, eject_id);
+          } else if (action == 'eject_hot_line'){
+            sendStatuses(orders, mgr_eject_id_hot_line, eject_id_hot_line);
+          } else {
+            sendStatuses(orders, mgr_id, sts_id);
+          }
+          resetOrderListWithFilter(filter);
+        } else {
+          if(selected.val() == "lenses"){
+            var orders = findOrders(filter);
+            sendStatuses(orders, mgr_id, sts_id);
+            resetOrderListWithFilter(filter);
+          } else {
+            if((selected.val() == "universal")||(selected.val() == "universal_short")||(selected.val() == "acceptance")){
+              var orders = findOrders(filter);
+              if (action == 'eject'){
+                sendStatuses(orders, mgr_eject_id, eject_id);
+              } else if (action == 'eject_hot_line'){
+                sendStatuses(orders, mgr_eject_id_hot_line, eject_id_hot_line);
+1              } else {
+                sendStatuses(orders, mgr_id, sts_id);
+              }
+              resetOrderListWithFilter(filter);
+              $("#" + fid).focus();
+            } else {
+              if(selected.val() == "test"){
+                alert("В разработке");
+              } else {
+                alert("Неизвестный отдел");
+              }
+            }
+          }
+        }
+        var log = all_orders + ';' + orders + ';' + filter + ';' + sts_id + ';' + mgr_id + ';' + selected.val() + ';';
+        $('#set_log').load('makeLogStatusOrder.php?log=' + log);
+      } else {
+        alert("У вас не хватает прав для установки статуса: " + allowance);
+        $("#sts_id_s").val('');
+      }
+    }
+  } else {
+    alert("Поля: 'Код менеджера' и 'Код статуса' должны быть заполнены.");
+  }
+};
+                                                                                                                
+function findOrders(filter) {
+  var orders = [];
+  $('#fields').find(filter).each(function(){
+    orders.push($(this).attr("order"));
+    console.log($(this).attr("order"));
+  });
+  return orders;
+}
+                                                                                                                
+function findOrder(order,filter = '*') {
+  var flag = false;
+  $('#fields').find(filter).each(function(){
+    if ($(this).attr("order") == order){
+      flag = true;
+    }   
+  });
+  return flag;
+}                                                                                                                
+function moveOrdersFromScan(filter,to) {
+  $('#fields ' + filter).each(function(){
+    $(this).parent().parent().parent().clone().appendTo(to);
+  });
+}
+                                                                                                                
+function nextFocus2(e) {
+  var mgr_id = $("#mgr_id").val() * 1;
+  var sts_id = $("#sts_id").val() * 1;
+
+        if ((e.keyCode == 13) && ($(this).val() * 1 >= 1)) {
+          $("#bInWorkOrders").focus();
+        }
+
+        if (e.keyCode == 13) {
+          focus2Mgr();
+        }
+}
+                                                                                                                
+function nextFocus() {
+  activeElem = $(document.activeElement);
+  curr_page_name = $('#curr_page').val();
+
+  if (curr_page_name == 'scan_orders'){
+    if ((activeElem.prop('id').indexOf('order_') > -1) && (activeElem.val() == '')){
+      $('#bNext').focus();
+    } else {
+      setDefFocusOnPage();
+    }
+  } else if (curr_page_name == 'set_orders') {
+    var mgr_id = $("#mgr_id_s");
+    var sts_id = $("#sts_id_s");
+    if (sts_id.val() < 1) {
+      sts_id.focus();
+    } else if (mgr_id.val() < 1) {
+      mgr_id.focus();
+    } else {
+      $('#bNext').focus();
+    }
+  } else if (curr_page_name == 'eject_orders'){
+    var mgr_id = $("#mgr_id_e");
+    if (mgr_id.val() < 1) {
+      mgr_id.focus();
+    } else {
+      $('#bNext').focus();
+    }
+  } else if (curr_page_name == 'eject_orders_hot_line'){
+    var mgr_id = $("#mgr_id_e_h_l");
+    if (mgr_id.val() < 1) {
+      mgr_id.focus();
+    } else {
+      $('#bNext').focus();
+    }
+  } else if (curr_page_name == 'settings'){
+  
+  } else if (curr_page_name == 'history'){
+  
+  }
+
+  //alert(activeElem.prop('id'));
+}
+                                                                                                                
+function focus2Mgr() {
+// Фокус на код статуса
+  var mgr_id = $("#mgr_id").val() * 1;
+  var sts_id = $("#sts_id").val() * 1;
+  if (sts_id < 1) {
+    $("#sts_id").focus();
+  } else if (mgr_id < 1) {
+    $("#mgr_id").focus();
+  }
+}
+                                                                                                                
+function afterLoad() {
+  createField();
+  pageSet('scan_orders');
+
+  $("#sts_id").keypress(nextFocus);
+  $("#mgr_id").keypress(nextFocus);
+    $( "#bReset" ).click(function() {
+      resetOrderList();
+      resetLog();
+      $("#sts_id_s").val('');
+      $("#mgr_id_s").val('');
+    });
+    $( "#bClear" ).click(function() {
+      resetOrderList();
+      resetLog();
+    });
+    $('#counter_background').on('click',function() {
+      updateCounters();
+
+      $('#vis_counter_n').toggle();
+      $('#vis_counter_s').toggle();
+      $('#vis_counter').toggle();
+    });
+
+    $('#green_filter').on('click',function() {
+      $('#user_filters .user_filter').val("");
+      $('#green_filter').val("*");
+      $('#user_filter option[value=".today"]').attr("selected", "selected");
+      $('#vis_counter_n').attr("class", "counter today");
+      updateCounters();
+      nextFocus();
+    });
+
+    $('#yellow_filter').on('click',function() {
+      $('#user_filters .user_filter').val("");
+      $('#yellow_filter').val("*");
+      $('#user_filter option[value=".tomorrow"]').attr("selected", "selected");
+      $('#vis_counter_n').attr("class", "counter tomorrow");
+      updateCounters;
+      nextFocus();
+    });
+
+    $('#blue_filter').on('click',function() {
+      $('#user_filters .user_filter').val("");
+      $('#blue_filter').val("*");
+      $('#user_filter option[value=".ordered"]').attr("selected", "selected");
+      $('#vis_counter_n').attr("class", "counter ordered");
+      updateCounters();
+      nextFocus();
+    });
+
+    $('#body').on('focus',function() {
+      nextFocus();
+    });
+
+    $('#html').on('focus',function() {
+      nextFocus();
+    });
+}
+                                                                                                                
+var prev_page_nav = [];
+var curr_page_nav = [];
+                                                                                                                
+function pageSet(page_name, navigation = [0,1,'Далее','']) {
+    var selected = $("#department option:selected").val();
+    var user_selected_filter = $("#user_filter option:selected").val();
+    var sts_id = $("#sts_id_s");
+    curr_page = $('#curr_page');
+    prev_page = $('#prev_page');
+    message = $('#message');
+
+    if (curr_page.val() != 'none'){
+      $('#' + curr_page.val()).toggle();
+      prev_page.val(curr_page.val());
+      this.prev_page_nav = this.curr_page_nav;
+    }
+
+    if (page_name == 'scan_orders') {
+      message.html('Отсканировано заказов');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').show();
+      $('#vis_counter_s').show();
+      if (selected == 'acceptance') {
+        $('#user_filters').show();
+      }
+    } else if (page_name == 'eject_orders')  {
+      $('#vis_counter_s').val($('#fields .eject').size());
+      message.html('Изъять заказы');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').hide();
+      $('#vis_counter_s').show();
+      $('#user_filters').hide();
+    } else if (page_name == 'eject_set_orders')  {
+      message.html('Установить стасус изъятым заказам');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').hide();
+      $('#vis_counter_s').show();
+      $('#user_filters').hide();
+    } else if (page_name == 'eject_orders_hot_line')  {
+      $('#vis_counter_s').val($('#fields .eject_hot_line').size());
+      message.html('Передать заказы в ГЛ');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').hide();
+      $('#vis_counter_s').show();
+      $('#user_filters').hide();
+    } else if (page_name == 'eject_set_orders_hot_line')  {
+      message.html('Установить стасус передеанным заказам в ГЛ');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').hide();
+      $('#vis_counter_s').show();
+      $('#user_filters').hide();
+    } else if (page_name == 'set_orders')  {
+      if(selected == "acceptance"){
+        if (user_selected_filter == '.today') {
+          sts_id.val('23');
+        } else if (user_selected_filter == '.tomorrow') {
+          sts_id.val('7');
+        } else if (user_selected_filter == '.ordered') {
+          sts_id.val('120');
+        }
+      }
+      message.html('Установить статус');
+      $('#vis_counter').hide();
+      $('#vis_counter_n').show();
+      $('#vis_counter_s').hide();
+      $('#user_filters').hide();
+    }
+
+    this.curr_page_nav = navigation;
+    navigation[0] == 0  ? $('#bReturn').hide() : $('#bReturn').show();
+    navigation[1] == 0  ? $('#bSettings').hide() : $('#bSettings').show();
+    navigation[2] == '' ? $('#bNext').hide() : $('#bNext').show();
+    navigation[2] != '' ? $('#bNext').val(navigation[2]) : 'do_nothing';
+    navigation[3] == '' ? $('#bNext_2').hide() : $('#bNext_2').show();
+    navigation[3] != '' ? $('#bNext_2').val(navigation[3]) : 'do_nothing';
+
+    $('#' + page_name).toggle();
+    curr_page.val(page_name);
+    setDefFocusOnPage();
+}
+                                                                                                                
+function pageReturn() {
+    prev_page = $('#prev_page');
+    if (prev_page.val() != 'none'){
+      pageSet(prev_page.val(),this.prev_page_nav);
+    }
+}
+                                                                                                                
+function pageNext() {
+  var checkSts = /\d+/;
+  var user_selected_filter = $("#user_filter option:selected").val();
+  activeElem = $(document.activeElement);
+  curr_page_name = $('#curr_page').val();
+  orders = $('#fields');
+  filter_set = user_selected_filter;
+  filter_eject = '.eject';
+  filter_eject_hot_line = '.eject_hot_line';
+
+  $('#vis_counter_n').val($('#fields').find(filter_set).size());
+  $('#vis_counter_s').val($('#fields .eject').size() + $('#fields .eject_hot_line').size());
+
+  if (curr_page_name == 'scan_orders'){
+    $('#fields_eject').empty();
+    if (orders.find(filter_eject).size() > 0) {
+      moveOrdersFromScan(filter_eject,'#fields_eject');
+      pageSet('eject_orders',[0,0,'Изъять','Игнор']);
+    } else if (orders.find(filter_eject_hot_line).size() > 0) {
+      moveOrdersFromScan(filter_eject_hot_line,'#fields_eject');
+      pageSet('eject_orders_hot_line',[0,0,'Изъять','Игнор']);
+    } else if (orders.find(filter_set).size() > 0) {
+      pageSet('set_orders',[0,0,'Установить','']);
+    } else {
+      alert("Нет заказов удовлетворяющих критериям");
+    }
+  } else if (curr_page_name == 'set_orders') {
+    var mgr_id = $("#mgr_id_s");
+    var sts_id = $("#sts_id_s");
+    if ((sts_id.val().match(checkSts) != null) && (mgr_id.val() > 0)) {
+      setStatuses(filter_set);
+      pageSet('scan_orders');
+    } else {
+      alert("Поля 'Мастер' и 'Статус' должны быть заполнены");
+    }
+  } else if (curr_page_name == 'eject_orders'){
+    var mgr_id = $("#mgr_id_e");
+    if (mgr_id.val() > 0) {
+      $("#mgr_id_s").val(mgr_id.val());
+      setStatuses(filter_eject,'eject');
+
+      if ($('#fields').find(filter_eject_hot_line).size() > 0) {
+        moveOrdersFromScan(filter_eject_hot_line,'#fields_eject_hot_line');
+        pageSet('eject_orders_hot_line',[0,0,'В ГЛ','Игнор']);
+      } else if ($('#fields').find(filter_set).size() > 0) {
+        pageSet('set_orders',[0,0,'Установить','']);
+      } else {
+        pageSet('scan_orders');
+      }
+    } else {
+      alert("Поле 'Мастер' должны быть заполнены");
+    }
+  } else if (curr_page_name == 'eject_set_orders'){
+    var mgr_id = $("#mgr_id_s_e");
+    var sts_id = $("#sts_id_s_e");
+
+    if ((sts_id.val().match(checkSts) != null) && (mgr_id.val() > 0)) {
+      $("#mgr_id_s").val(mgr_id.val());
+      $("#sts_id_s").val(sts_id.val());
+      setStatuses(filter_eject);
+
+      if ($('#fields').find(filter_set).size() > 0) {
+        pageSet('set_orders',[0,0,'Установить','']);
+      } else {
+        pageSet('scan_orders');
+      }
+    } else {
+      alert("Поля 'Мастер' и 'Статус' должны быть заполнены");
+    }
+  } else if (curr_page_name == 'eject_orders_hot_line'){
+    var mgr_id = $("#mgr_id_e_h_l");
+    if (mgr_id.val() > 0) {
+      $("#mgr_id_s").val(mgr_id.val());
+      setStatuses(filter_eject_hot_line,'eject_hot_line');
+
+      if ($('#fields').find(filter_set).size() > 0) {
+        pageSet('set_orders',[0,0,'Установить','']);
+      } else {
+        pageSet('scan_orders');
+      }
+    } else {
+      alert("Поле 'Мастер' должны быть заполнены");
+    }
+  } else if (curr_page_name == 'eject_set_orders_hot_line'){
+    var mgr_id = $("#mgr_id_s_e");
+    var sts_id = $("#sts_id_s_e");
+
+    if ((sts_id.val().match(checkSts) != null) && (mgr_id.val() > 0)) {
+      $("#mgr_id_s").val(mgr_id.val());
+      $("#sts_id_s").val(sts_id.val());
+      setStatuses(filter_eject_hot_line);
+
+      if ($('#fields').find(filter_set).size() > 0) {
+        pageSet('set_orders',[0,0,'Установить','']);
+      } else {
+        pageSet('scan_orders');
+      }
+    } else {
+      alert("Поля 'Мастер' и 'Статус' должны быть заполнены");
+    }
+  } else if (curr_page_name == 'settings'){
+  
+  } else if (curr_page_name == 'history'){
+  
+  }
+}
+                                                                                                                
+function pageNext_2(filter_set = '.today', filter_eject = '.eject') {
+  activeElem = $(document.activeElement);
+  curr_page_name = $('#curr_page').val();
+  orders = $('#fields');
+
+  $('#vis_counter_n').val($('#fields .today').size());
+  $('#vis_counter_s').val($('#fields .eject').size() + $('#fields .eject_hot_line').size());
+
+  if (curr_page_name == 'scan_orders'){
+  } else if (curr_page_name == 'set_orders') {
+  } else if (curr_page_name == 'eject_orders'){
+    if ($('#fields').find(filter_eject).size() > 0) {
+      pageSet('eject_set_orders',[0,0,'Установить','']);
+    } else if ($('#fields').find(filter_eject_hot_line).size() > 0) {
+      moveOrdersFromScan(filter_eject_hot_line,'#fields_eject');
+      pageSet('eject_orders_hot_line',[0,0,'Изъять','Игнор']);
+    } else if ($('#fields').find(filter_set).size() > 0) {
+      pageSet('set_orders',[0,0,'Установить','']);
+    } else {
+      pageSet('scan_orders');
+    }
+  } else if (curr_page_name == 'eject_orders_hot_line'){
+    if ($('#fields').find(filter_eject_hot_line).size() > 0) {
+      pageSet('eject_set_orders_hot_line',[0,0,'Установить','']);
+    } else if ($('#fields').find(filter_set).size() > 0) {
+      pageSet('set_orders',[0,0,'Установить','']);
+    } else {
+      pageSet('scan_orders');
+    }
+  } else if (curr_page_name == 'eject_set_orders'){
+  } else if (curr_page_name == 'settings'){
+  } else if (curr_page_name == 'history'){
+
+  }
+}
+                                                                                                                
+function setDefFocusOnPage() {
+    curr_page_name = $('#curr_page').val();
+
+    if (curr_page_name == 'scan_orders'){
+      var number = $('#counter').val() - 1;
+
+      $('#order_' + number).focus();
+    } else if (curr_page_name == 'set_orders') {
+      var mgr_id = $("#mgr_id_s");
+      var sts_id = $("#sts_id_s");
+      if (sts_id.val() < 1) {
+        sts_id.focus();
+      } else if (mgr_id.val() < 1) {
+        mgr_id.focus();
+      }
+    } else if (curr_page_name == 'eject_orders'){
+      var mgr_id = $("#mgr_id_e");
+      if (mgr_id.val() < 1) {
+        mgr_id.focus();
+      }
+    } else if (curr_page_name == 'eject_orders_hot_line'){
+      var mgr_id = $("#mgr_id_e_h_l");
+      if (mgr_id.val() < 1) {
+        mgr_id.focus();
+      }
+    } else if (curr_page_name == 'settings'){
+      
+    } else if (curr_page_name == 'history'){
+      
+    }
+}
+                                                                                                                
+addEventListener("keyup", function(event) {
+  iTop = $( '#top' )[0];
+  iBottom = $('#bottom')[0];
+  curr_page_name = $('#curr_page').val();
+
+  if (event.keyCode == 37)     /*Стрелка влево*/
+    setDefFocusOnPage();
+  if (event.keyCode == 38)     /*Стрелка вверх*/
+    iTop.scrollIntoView('true');
+  if (event.keyCode == 39)     /*Стрелка вправо*/
+    nextFocus();
+  if (event.keyCode == 40)     /*Стрелка вниз*/
+    iBottom.scrollIntoView('false');
+  if (event.keyCode == 16)     /*Shift*/
+    $(document.activeElement)[0].scrollIntoView();
+  if ((event.keyCode == 13) && (curr_page_name != 'scan_orders'))   /*Enter*/
+    nextFocus();
+  if (event.keyCode == 20)     /*Caps Lock*/
+    findOrders('.notFound');
+  if (event.keyCode == 81) {     /*Q*/
+    $('#green_filter').click();
+    $(':focus').val('');
+  }
+  if (event.keyCode == 87) {    /*W*/
+    $('#yellow_filter').click();
+    $(':focus').val('');
+  }
+  if (event.keyCode == 69) {    /*E*/
+    $('#blue_filter').click();
+    $(':focus').val('');
+  }
+});
+</script>
